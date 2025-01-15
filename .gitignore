@@ -1,0 +1,10 @@
+.Rhistory
+.Rapp.history
+.RData
+.RDataTmp
+.Rproj.user/
+.Renviron
+
+*.Rproj
+*.db
+data/

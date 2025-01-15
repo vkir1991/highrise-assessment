@@ -1,0 +1,71 @@
+general notes
+
+no player_id key feels weird - using device_id for now as a proxy, but some players may be logging in on multiple devices, which obfuscates things
+
+should ask for a rundown of all event types; most are self-explanatory, some are not
+
+since we're just developing a model to predict whether or not a player will make their first purchase in the observed period, keep it simple and just run a logistic regression
+can also try an SVM, since that's just a classification model as well
+could get fancier, but it typically doesn't matter
+the interesting part will be coming up with reasonable parameters for the model; here's where analysis comes in
+
+
+storage: a bunch of .gz files isn't great, assuming this is to test my etl abilities. lots of solutions out there, sql or firebase if you want a nosql solution, or fancier stuff like redshift, snowflake, etc.
+
+some inconsistencies in jsons: list of items for some wardrobe change accounts are an actual list ["a","b","c"], some are just comma-separated ["a,b,c"]
+seems unlikely to really matter
+
+for every user: need a binary, did they spend money or not?
+then need to ONLY look at events from BEFORE they spent money, otherwise we're getting causality wrong (e.g. if people who spend money then are likely to join a crew, joining a crew isn't actually indicative of spending money)
+
+obvious things to check:
+- various events as individual factors
+  - binary (you did this ever)
+  - number of times done (maybe some splits, though tree models are better for this)
+  - binary in first session, number of times in first X days, etc. (lots of ground to cover here)
+- first session length
+- retention - specifically, how many times did they come back in the first X days? (or rather, how many unique days)
+- types of interactions in game; did players go to multiple rooms, play a game, join an event, etc.
+- country; presumably some countries are more likely to spend (us) than others (india)
+- 
+
+
+
+
+followups:
+- robustness - k-fold cross validation
+- predictive model for *when* a user will make that first purchase, in particular how many do it on their first day?
+- optimizations: some of my calcs can be done in SQL, which is likely faster, I didn't bother with only 10k users
+- what prompts repeat purchases? for example, maybe some players get deep into tipping culture and want to top off occasionally
+
+
+event_type notes (for further exploration; anything useful will be in analysis section anyway)
+- [Singular] Install: seems like it'd be useful to have attribution here
+- Campaign_Finished: presumably has to do with marketing campaigns? in general, would be useful to link back to attribution source to see if players from certain UA flows or ad creatives are more likely to spend money (though this can be done via marketing tools anyway as ROAS)
+- FTUE_Completed: looks like it's just "starter goals" in various languages, so not clear what else this ought to be tracking, seems redundant with registration stuff?
+- Registration_X: feels like these should all be organized as one event, for ease of use, since half of these are just a funnel anyway
+- Event_SubmittedOutfit: only useful as a signal if we have the counterfactual: if there was an event running, and you were playing, but you didn't submit an outfit, that's a negative sign. just the positive event on its own is confounding
+- 
+- UA_PurchasedFirstIAP: not very reliable, some device_ids have multiple of this
+- Registration_FinishedRegistration: somehow we have 10816 event_ids across 5822 device_ids, so device is clearly somewhat problematic
+- session_end: not every session_start has a session_end associated, total counts 264139 / 231022, unique users 9702 / 6222. also, session time should be embedded in the session_end data, for easy access and to avoid any issues with mismatches
+- could create a "virtual" session_end event, which is just the last event known before a new session_start, to fill in the gaps, not worth it for now
+- VW_FinishedVisit: social taps seem interesting, but it wasn't clear to me what that was - don't see a direct way to click on another user's socials except via profile, rooms themselves don't see to have socials
+- 
+
+events that seem missing:
+- followed someone (plus flag if they already follow you = friend)
+- somone followed you (plus flag if you already follow them = friend)
+  - from this, can get number of friends in first session/day/etc., proxy for having been referred, etc.
+- attribution source: maybe people that come from facebook are just more likely to spend? this is probably confounded with other factors though, and is likely just a proxy for demographic
+- edited your (start) room
+- created a new room
+
+factors
+- 3-day, 7-day were somewhat arbitrarily chosen (based on game industry standards), but might not be the correct windows for predictiveness
+  - can run a range of values here and see what plays best, BUT: from experience, this either matters very little (so intuition is good enough), or it's sensitive to it, in which case we're just overfitting
+
+
+
+LuckyWheel_SpunLuckyWheel: simple version is just if you did this; in a more sophisticated model, we could try to see if getting better stuff early leads you to spend more, retain more, etc., but that involves mucking about with the rewards a lot
+
